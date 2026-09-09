@@ -21,7 +21,7 @@ A small native Android shell for the ForestBridge companion-robot display.
 4. Connect a physical Android phone and run the app module.
 5. Grant Phone permission. Grant Microphone only when the web UI asks for it.
 
-The project uses Android Gradle Plugin 9.3.0, Gradle 9.5.0, JDK 17,
+The project uses Android Gradle Plugin 9.0.0, Gradle 9.1.0, JDK 17,
 minimum API 26, and target/compile API 36.
 
 ## Change the remote page
