@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var offlineView: View
     private lateinit var callStateMonitor: CallStateMonitor
+    private lateinit var relayBridge: RelayBridge
     private val allowedOrigin = Uri.parse(BuildConfig.WEB_APP_URL)
 
     private var pendingAudioRequest: PermissionRequest? = null
@@ -98,6 +99,13 @@ class MainActivity : Activity() {
 
         setContentView(root)
         configureWebView()
+        relayBridge = RelayBridge(
+            activity = this,
+            webView = webView,
+            webAppUrl = BuildConfig.WEB_APP_URL,
+            uiToken = BuildConfig.RELAY_UI_TOKEN
+        )
+        webView.addJavascriptInterface(relayBridge, "ForestBridgeRelay")
         registerWeChatCallReceiver()
 
         callStateMonitor = CallStateMonitor(applicationContext) {
@@ -435,6 +443,8 @@ class MainActivity : Activity() {
             weChatReceiverRegistered = false
         }
 
+        relayBridge.close()
+        webView.removeJavascriptInterface("ForestBridgeRelay")
         webView.stopLoading()
         (webView.parent as? ViewGroup)?.removeView(webView)
         webView.destroy()

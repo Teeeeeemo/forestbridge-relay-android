@@ -12,6 +12,8 @@ A small native Android shell for the ForestBridge companion-robot display.
 - Observes incoming cellular call phases after READ_PHONE_STATE is granted
 - Detects likely WeChat audio/video call notifications after notification access is enabled
 - Emits local WebView events named forestbridge:native-call
+- Uses a native HTTPS bridge to create, stop, and observe Relay tasks
+- Keeps the Relay UI token out of JavaScript and source control
 - Does not send call events to the Relay or move the robot yet
 
 ## Open in Android Studio
@@ -26,6 +28,22 @@ A small native Android shell for the ForestBridge companion-robot display.
 
 The project uses Android Gradle Plugin 9.0.0, Gradle 9.1.0, JDK 17,
 minimum API 26, and target/compile API 36.
+
+## Configure Relay access
+
+Add the existing UI token to the developer machine's
+`~/.gradle/gradle.properties` file:
+
+```properties
+FORESTBRIDGE_UI_TOKEN=replace-with-the-existing-ui-token
+```
+
+Do not add the token to this repository. After changing it, sync Gradle and
+rebuild the app. Without a token the face still opens, but native Relay
+requests return a configuration error.
+
+The full task/state contract is documented in
+[docs/jetson-integration/README.md](docs/jetson-integration/README.md).
 
 ## Change the remote page
 
