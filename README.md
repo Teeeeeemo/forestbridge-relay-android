@@ -4,7 +4,7 @@ A small native Android shell for the ForestBridge companion-robot display.
 
 ## First milestone
 
-- Loads the remote robot UI from https://robot.wichai.xyz/
+- Loads the isolated companion-face UI from https://robot.wichai.xyz/companion/index.html
 - Locks the display to landscape and immersive fullscreen
 - Keeps the screen awake while the app is running
 - Shows an offline screen with retry
@@ -26,7 +26,7 @@ minimum API 26, and target/compile API 36.
 
 ## Change the remote page
 
-Edit WEB_APP_URL in app/build.gradle.kts. Release builds reject cleartext HTTP.
+Edit WEB_APP_URL in app/build.gradle.kts. The default points to the isolated /companion/index.html page; the legacy site at / remains unchanged. Release builds reject cleartext HTTP.
 
 ## Native call event
 

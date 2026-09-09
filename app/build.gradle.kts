@@ -16,7 +16,7 @@ android {
         buildConfigField(
             "String",
             "WEB_APP_URL",
-            "\"https://robot.wichai.xyz/\""
+            "\"https://robot.wichai.xyz/companion/index.html\""
         )
     }
 
