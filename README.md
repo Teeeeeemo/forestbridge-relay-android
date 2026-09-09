@@ -10,6 +10,7 @@ A small native Android shell for the ForestBridge companion-robot display.
 - Shows an offline screen with retry
 - Allows microphone access only for the configured HTTPS origin
 - Observes incoming cellular call phases after READ_PHONE_STATE is granted
+- Detects likely WeChat audio/video call notifications after notification access is enabled
 - Emits local WebView events named forestbridge:native-call
 - Does not send call events to the Relay or move the robot yet
 
@@ -20,6 +21,8 @@ A small native Android shell for the ForestBridge companion-robot display.
 3. Let Gradle sync install Android SDK 36 if it is missing.
 4. Connect a physical Android phone and run the app module.
 5. Grant Phone permission. Grant Microphone only when the web UI asks for it.
+6. On the phone, open Settings > Apps > Special app access > Notification access,
+   then enable ForestBridge Relay. No in-app setup screen is included.
 
 The project uses Android Gradle Plugin 9.0.0, Gradle 9.1.0, JDK 17,
 minimum API 26, and target/compile API 36.
@@ -37,9 +40,10 @@ The app dispatches this event into the trusted WebView origin:
       console.log(event.detail.phase)
     })
 
-The phases are ringing, active, and ended. Outgoing calls are ignored. Debug
-builds also display a short toast so the cellular-call listener can be tested
-before the server event endpoint exists.
+The phases are ringing, active, and ended. WeChat events use source wechat and
+may include kind audio or video. The detector uses notification category and
+conservative text matching because WeChat does not expose a stable public call
+API. Debug builds display a short toast for detected events.
 
 ## Safety boundary
 

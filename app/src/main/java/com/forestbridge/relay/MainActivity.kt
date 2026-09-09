@@ -2,6 +2,10 @@ package com.forestbridge.relay
 
 import android.Manifest
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
@@ -43,6 +47,26 @@ class MainActivity : Activity() {
 
     private var pendingAudioRequest: PermissionRequest? = null
     private var lastCallPayload: String? = null
+    private var weChatReceiverRegistered = false
+
+    private val weChatCallReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (
+                intent.action !=
+                WeChatNotificationListenerService.ACTION_CALL_STATE_CHANGED
+            ) {
+                return
+            }
+
+            val phase = intent.getStringExtra(
+                WeChatNotificationListenerService.EXTRA_PHASE
+            ) ?: return
+            val kind = intent.getStringExtra(
+                WeChatNotificationListenerService.EXTRA_KIND
+            )
+            dispatchNativeCall("wechat", phase, kind)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,6 +98,7 @@ class MainActivity : Activity() {
 
         setContentView(root)
         configureWebView()
+        registerWeChatCallReceiver()
 
         callStateMonitor = CallStateMonitor(applicationContext) {
             phase -> runOnUiThread { dispatchCallPhase(phase) }
@@ -228,23 +253,68 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun dispatchCallPhase(phase: CallPhase) {
-        val payload = JSONObject()
-            .put("source", "cellular")
-            .put("phase", phase.wireValue)
-            .put("observed_at_epoch_ms", System.currentTimeMillis())
-            .toString()
+    private fun registerWeChatCallReceiver() {
+        val filter = IntentFilter(
+            WeChatNotificationListenerService.ACTION_CALL_STATE_CHANGED
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                weChatCallReceiver,
+                filter,
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(weChatCallReceiver, filter)
+        }
+        weChatReceiverRegistered = true
 
-        lastCallPayload = payload
+        WeChatNotificationListenerService.readActiveCall(this)?.let { state ->
+            lastCallPayload = buildCallPayload(
+                source = "wechat",
+                phase = state.phase,
+                kind = state.kind
+            )
+        }
+    }
+
+    private fun dispatchCallPhase(phase: CallPhase) {
+        dispatchNativeCall(
+            source = "cellular",
+            phase = phase.wireValue
+        )
+    }
+
+    private fun dispatchNativeCall(
+        source: String,
+        phase: String,
+        kind: String? = null
+    ) {
+        val payload = buildCallPayload(source, phase, kind)
+        lastCallPayload = if (phase == "ended") null else payload
         sendCallPayloadToWeb(payload)
 
         if (BuildConfig.DEBUG) {
+            val sourceLabel = if (source == "wechat") "微信" else "手机"
             Toast.makeText(
                 this,
-                "来电状态：" + phase.wireValue,
+                "$sourceLabel 来电状态：$phase",
                 Toast.LENGTH_SHORT
             ).show()
         }
+    }
+
+    private fun buildCallPayload(
+        source: String,
+        phase: String,
+        kind: String? = null
+    ): String {
+        val payload = JSONObject()
+            .put("source", source)
+            .put("phase", phase)
+            .put("observed_at_epoch_ms", System.currentTimeMillis())
+        if (!kind.isNullOrBlank()) payload.put("kind", kind)
+        return payload.toString()
     }
 
     private fun sendCallPayloadToWeb(payload: String) {
@@ -360,6 +430,10 @@ class MainActivity : Activity() {
         pendingAudioRequest?.deny()
         pendingAudioRequest = null
         callStateMonitor.stop()
+        if (weChatReceiverRegistered) {
+            unregisterReceiver(weChatCallReceiver)
+            weChatReceiverRegistered = false
+        }
 
         webView.stopLoading()
         (webView.parent as? ViewGroup)?.removeView(webView)

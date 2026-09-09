@@ -16,6 +16,16 @@
         android:theme="@style/Theme.ForestBridge"
         android:usesCleartextTraffic="false">
 
+        <service
+            android:name=".WeChatNotificationListenerService"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".MainActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
