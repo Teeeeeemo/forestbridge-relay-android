@@ -164,7 +164,7 @@ class WeChatNotificationListenerService : NotificationListenerService() {
             extras.getCharSequence(Notification.EXTRA_INFO_TEXT)
         )
         extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
-            ?.let(parts::addAll)
+            ?.forEach { parts.add(it) }
         return parts
             .filterNotNull()
             .joinToString(" ")
