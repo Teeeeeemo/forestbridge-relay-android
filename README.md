@@ -22,12 +22,15 @@ A small native Android shell for the ForestBridge companion-robot display.
 2. Open this repository in Android Studio.
 3. Let Gradle sync install Android SDK 36 if it is missing.
 4. Connect a physical Android phone and run the app module.
-5. Grant Phone permission. Grant Microphone only when the web UI asks for it.
-6. On the phone, open Settings > Apps > Special app access > Notification access,
+5. The robot face and Relay bridge need no runtime permission. Grant Microphone only when a voice feature explicitly asks for it.
+6. Cellular call monitoring is optional. Grant Phone permission from the app settings only when testing that feature.
+7. On the phone, open Settings > Apps > Special app access > Notification access,
    then enable ForestBridge Relay. No in-app setup screen is included.
 
 The project uses Android Gradle Plugin 9.0.0, Gradle 9.1.0, JDK 17,
 minimum API 26, and target/compile API 36.
+
+On Android 16, optional Phone permission is never requested during startup. If it is already granted and the device supports cellular calling, monitoring starts on resume. Missing permission, missing telephony hardware, or an OEM telephony error does not block the WebView or Relay bridge.
 
 ## Configure Relay access
 

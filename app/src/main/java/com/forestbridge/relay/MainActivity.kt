@@ -31,19 +31,20 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.util.Log
 import org.json.JSONObject
 
 class MainActivity : Activity() {
 
     companion object {
-        private const val REQUEST_PHONE_STATE = 1001
         private const val REQUEST_AUDIO_CAPTURE = 1002
+        private const val TAG = "ForestBridgeMain"
     }
 
     private lateinit var webView: WebView
     private lateinit var offlineView: View
-    private lateinit var callStateMonitor: CallStateMonitor
-    private lateinit var relayBridge: RelayBridge
+    private var callStateMonitor: CallStateMonitor? = null
+    private var relayBridge: RelayBridge? = null
     private val allowedOrigin = Uri.parse(BuildConfig.WEB_APP_URL)
 
     private var pendingAudioRequest: PermissionRequest? = null
@@ -99,24 +100,25 @@ class MainActivity : Activity() {
 
         setContentView(root)
         configureWebView()
-        relayBridge = RelayBridge(
+        RelayBridge(
             activity = this,
             webView = webView,
             webAppUrl = BuildConfig.WEB_APP_URL,
             uiToken = BuildConfig.RELAY_UI_TOKEN
-        )
-        webView.addJavascriptInterface(relayBridge, "ForestBridgeRelay")
+        ).also { bridge ->
+            relayBridge = bridge
+            webView.addJavascriptInterface(bridge, "ForestBridgeRelay")
+        }
         registerWeChatCallReceiver()
 
-        callStateMonitor = CallStateMonitor(applicationContext) {
-            phase -> runOnUiThread { dispatchCallPhase(phase) }
+        callStateMonitor = CallStateMonitor(applicationContext) { phase ->
+            runOnUiThread { dispatchCallPhase(phase) }
         }
-        ensureCallMonitoringPermission()
 
-        val restored = savedInstanceState?.let { webView.restoreState(it) }
-        if (restored == null) {
-            loadRobotPage()
-        }
+        // Always create a fresh page after the interface is attached. Restoring a
+        // renderer can leave page JavaScript running before native interfaces are
+        // visible, which makes the page incorrectly fall back to an HTTP request.
+        loadRobotPage()
     }
 
     private fun configureWebView() {
@@ -132,7 +134,7 @@ class MainActivity : Activity() {
             javaScriptCanOpenWindowsAutomatically = false
             setSupportMultipleWindows(false)
             mediaPlaybackRequiresUserGesture = true
-            userAgentString = userAgentString + " ForestBridgeAndroid/0.1"
+            userAgentString = userAgentString + " ForestBridgeAndroid/0.3"
         }
 
         CookieManager.getInstance().apply {
@@ -215,18 +217,23 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun ensureCallMonitoringPermission() {
+    private fun startCallMonitoringIfPermitted() {
         if (
-            checkSelfPermission(Manifest.permission.READ_PHONE_STATE) ==
+            checkSelfPermission(Manifest.permission.READ_PHONE_STATE) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            callStateMonitor.start()
-        } else {
-            requestPermissions(
-                arrayOf(Manifest.permission.READ_PHONE_STATE),
-                REQUEST_PHONE_STATE
-            )
+            Log.i(TAG, "Phone permission not granted; call monitoring disabled")
+            return
         }
+
+        if (callStateMonitor?.start() != true) {
+            Log.i(TAG, "This device does not expose cellular call monitoring")
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        startCallMonitoringIfPermitted()
     }
 
     override fun onRequestPermissionsResult(
@@ -243,10 +250,6 @@ class MainActivity : Activity() {
             grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
 
         when (requestCode) {
-            REQUEST_PHONE_STATE -> {
-                if (granted) callStateMonitor.start()
-            }
-
             REQUEST_AUDIO_CAPTURE -> {
                 val request = pendingAudioRequest
                 pendingAudioRequest = null
@@ -272,7 +275,7 @@ class MainActivity : Activity() {
                 Context.RECEIVER_NOT_EXPORTED
             )
         } else {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION", "UnspecifiedRegisterReceiverFlag")
             registerReceiver(weChatCallReceiver, filter)
         }
         weChatReceiverRegistered = true
@@ -424,26 +427,18 @@ class MainActivity : Activity() {
         if (hasFocus) applyImmersiveMode()
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        webView.saveState(outState)
-        super.onSaveInstanceState(outState)
-    }
-
-    @Suppress("DEPRECATION")
-    override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
-    }
-
     override fun onDestroy() {
         pendingAudioRequest?.deny()
         pendingAudioRequest = null
-        callStateMonitor.stop()
+        callStateMonitor?.stop()
+        callStateMonitor = null
         if (weChatReceiverRegistered) {
             unregisterReceiver(weChatCallReceiver)
             weChatReceiverRegistered = false
         }
 
-        relayBridge.close()
+        relayBridge?.close()
+        relayBridge = null
         webView.removeJavascriptInterface("ForestBridgeRelay")
         webView.stopLoading()
         (webView.parent as? ViewGroup)?.removeView(webView)
